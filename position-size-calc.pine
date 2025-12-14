@@ -1,5 +1,5 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
-// © https://github.com/bshakr/tradingview-position-calculator
+// © bshakr https://github.com/bshakr/tradingview-position-calculator
 // v1.0.0
 
 //@version=6
@@ -108,8 +108,8 @@ color header_bg = is_dark ? color.rgb(25, 28, 38) : color.rgb(225, 225, 235)
 
 // === HEADER SECTION (Rows 0-4) - no internal borders ===
 // Row 0: Top separator line
-info_table.cell(0, 0, bgcolor = header_bg, text = "", height = 1)
-info_table.cell(1, 0, bgcolor = header_bg, text = "", height = 1)
+info_table.cell(0, 0, bgcolor = header_bg, text = "", height = 2)
+info_table.cell(1, 0, bgcolor = header_bg, text = "", height = 2)
 
 // Row 1: Direction | R:R
 info_table.cell(0, 1, bgcolor = header_bg, text_color = text_color, text = pad + direction_text + pad, text_halign = text.align_left, text_size = size.normal, text_font_family = font.family_monospace)
@@ -129,12 +129,12 @@ info_table.cell(0, 4, bgcolor = header_bg, text_color = text_color, text = pad +
 info_table.cell(1, 4, bgcolor = header_bg, text_color = text_color, text = pad + "Qty: " + str.tostring(math.abs(quantity), "#.####") + pad, text_halign = text.align_right, text_size = size.normal, text_font_family = font.family_monospace, width = 9)
 
 // Row 5: Bottom separator line
-info_table.cell(0, 5, bgcolor = header_bg, text = "", height = 1)
-info_table.cell(1, 5, bgcolor = header_bg, text = "", height = 1)
+info_table.cell(0, 5, bgcolor = header_bg, text = "", height = 2)
+info_table.cell(1, 5, bgcolor = header_bg, text = "", height = 2)
 
 // Row 6: Separator before trade section
-info_table.cell(0, 6, bgcolor = neutral_bg, text = "", height = 1)
-info_table.cell(1, 6, bgcolor = neutral_bg, text = "", height = 1)
+info_table.cell(0, 6, bgcolor = neutral_bg, text = "", height = 2)
+info_table.cell(1, 6, bgcolor = neutral_bg, text = "", height = 2)
 
 // === TRADE SECTION (Rows 7-9) ===
 // Row 7: Entry
@@ -163,8 +163,8 @@ info_table.cell(0, 12, bgcolor = neutral_bg, text_color = text_color, text = pad
 info_table.cell(1, 12, bgcolor = neutral_bg, text_color = sl_text_color, text = pad + sl_text + pad, text_halign = text.align_right, text_size = size.normal, text_font_family = font.family_monospace, width = 9)
 
 // Row 13: Separator after trade section
-info_table.cell(0, 13, bgcolor = neutral_bg, text = "", height = 1)
-info_table.cell(1, 13, bgcolor = neutral_bg, text = "", height = 1)
+info_table.cell(0, 13, bgcolor = neutral_bg, text = "", height = 2)
+info_table.cell(1, 13, bgcolor = neutral_bg, text = "", height = 2)
 
 // Displaying trade lines (entry, stop loss, take profit)
 display_trade_lines = input.bool(true, title="Display Trade Lines", group=group_display)
