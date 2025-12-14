@@ -2,8 +2,8 @@
 // © Awke
 
 
-//@version=5
-indicator(title = "Position Calculator",  shorttitle="Pos Calc" , overlay=true, explicit_plot_zorder = true)
+//@version=6
+indicator(title = "Position Calculator", shorttitle = "Pos Calc", overlay = true, explicit_plot_zorder = true)
 
 // Input groups
 group_trade_info = "Trade Info"
@@ -19,7 +19,13 @@ take_profit = input.price(0.0, title="Target Price", confirm=false, group=group_
 // Account info inputs
 account_balance = input.float(1000.0, title="Account Balance", group=group_account_info)
 leverage = input.float(1.0, title="Leverage", minval=1.0, step=1.0, group=group_account_info)
-risk_per_trade = input.float(0.0, title="Risk % of the trade", group=group_account_info)
+
+// Risk input - type determines how the value is interpreted
+risk_type = input.string("Percentage", title="Risk Type", options=["Percentage", "Fixed"], group=group_account_info)
+risk_value = input.float(1.0, title="Risk Amount", minval=0.0, step=0.5, tooltip="Enter % if 'Percentage' selected, or $ amount if 'Fixed $' selected", group=group_account_info)
+
+// Calculate effective risk percentage based on selection
+risk_per_trade = risk_type == "Fixed" ? (account_balance != 0 ? (risk_value / account_balance) * 100 : 0) : risk_value
 
 
 // Detect trade direction (long: take_profit > entry, short: take_profit < entry)
@@ -50,6 +56,9 @@ sl_loss_amount = position_size * (sl_per / 100)
 tp_profit_account_percent = account_balance != 0 ? (tp_profit_amount / account_balance) * 100 : 0
 sl_loss_account_percent = account_balance != 0 ? (sl_loss_amount / account_balance) * 100 : 0
 
+// Calculate quantity (units to buy/sell)
+quantity = entry != 0 ? position_size / entry : 0
+
 
 
 
@@ -72,55 +81,98 @@ theme = input.string("Dark", title="Theme", options=["Dark", "Light"], group=gro
 is_dark = theme == "Dark"
 
 // Color palette (theme-dependent)
-color neutral_bg     = is_dark ? color.rgb(30, 34, 45)    : color.rgb(240, 240, 245)
+color neutral_bg     = is_dark ? color.rgb(40, 45, 58)    : color.rgb(245, 245, 250)
 color text_color     = is_dark ? color.rgb(209, 212, 220) : color.rgb(40, 40, 50)
 color border_color   = is_dark ? color.rgb(54, 58, 69)    : color.rgb(180, 180, 190)
 color long_bg        = is_dark ? color.rgb(22, 72, 60)    : color.rgb(200, 235, 220)
 color short_bg       = is_dark ? color.rgb(92, 29, 36)    : color.rgb(245, 210, 210)
 color tp_profit_bg   = is_dark ? color.rgb(22, 72, 60)    : color.rgb(200, 235, 220)
 color sl_loss_bg     = is_dark ? color.rgb(92, 29, 36)    : color.rgb(245, 210, 210)
+color tp_text_color  = is_dark ? color.rgb(80, 200, 120)  : color.rgb(30, 130, 60)
+color sl_text_color  = is_dark ? color.rgb(240, 90, 90)   : color.rgb(180, 50, 50)
 color margin_warning = is_dark ? color.rgb(156, 120, 30)  : color.rgb(255, 230, 150)
 color margin_danger  = is_dark ? color.rgb(153, 35, 35)   : color.rgb(255, 180, 180)
 
-// Margin cell background
-color margin_bg = margin_percent > 100 ? margin_danger : margin_percent > 60 ? margin_warning : neutral_bg
+// Margin text color (red if above 100%)
+color margin_text_color = margin_percent > 100 ? sl_text_color : text_color
 
 // Direction info
-string direction_text = is_long ? "LONG" : is_short ? "SHORT" : "-"
+string direction_text = is_long ? "LONG " + syminfo.ticker : is_short ? "SHORT " + syminfo.ticker : "-"
 color direction_bg = is_long ? long_bg : is_short ? short_bg : neutral_bg
 
 // Text values
 string rr_text = "R:R  " + str.tostring(risk_reward_ratio, "#.##")
 string tp_text = "+$" + str.tostring(tp_profit_amount, "#.##") + " (+" + str.tostring(tp_profit_account_percent, "#.##") + "%)"
 string sl_text = "-$" + str.tostring(sl_loss_amount, "#.##") + " (-" + str.tostring(sl_loss_account_percent, "#.##") + "%)"
-string margin_text = "$" + str.tostring(margin, "#.##") + " (" + str.tostring(margin_percent, "#.##") + "%)"
+string margin_text = str.tostring(margin_percent, "#.##") + "%"
 
-// Create and populate table
-var table info_table = table.new(table_position, 2, 10, border_width=1, border_color=border_color, frame_width=2, frame_color=border_color)
+// Create and populate table (14 rows - no internal borders in header)
+var table info_table = table.new(table_position, 2, 14, border_width = 0, border_color = border_color, frame_width = 1, frame_color = border_color)
 
 // Padding for cells
 string pad = "  "
 
-table.cell(info_table, 0, 0, bgcolor=direction_bg, text_color=text_color, text=pad + direction_text + pad, text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
-table.cell(info_table, 1, 0, bgcolor=direction_bg, text_color=text_color, text=pad + rr_text + pad, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace, width=9)
-table.cell(info_table, 0, 1, bgcolor=neutral_bg, text_color=text_color, text=pad + "Entry" + pad, text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
-table.cell(info_table, 1, 1, bgcolor=neutral_bg, text_color=text_color, text=pad + "$" + str.tostring(entry, f_Format()) + pad, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace, width=9)
-table.cell(info_table, 0, 2, bgcolor=neutral_bg, text_color=text_color, text=pad + "Take Profit" + pad, text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
-table.cell(info_table, 1, 2, bgcolor=neutral_bg, text_color=text_color, text=pad + "$" + str.tostring(take_profit, f_Format()) + pad, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace, width=9)
-table.cell(info_table, 0, 3, bgcolor=neutral_bg, text_color=text_color, text=pad + "Stop Loss" + pad, text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
-table.cell(info_table, 1, 3, bgcolor=neutral_bg, text_color=text_color, text=pad + "$" + str.tostring(stop_loss, f_Format()) + pad, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace, width=9)
-table.cell(info_table, 0, 4, bgcolor=neutral_bg, text_color=text_color, text=pad + "Account Size" + pad, text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
-table.cell(info_table, 1, 4, bgcolor=neutral_bg, text_color=text_color, text=pad + "$" + str.tostring(account_balance, "#.##") + " USD" + pad, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace, width=9)
-table.cell(info_table, 0, 5, bgcolor=neutral_bg, text_color=text_color, text=pad + "Leverage" + pad, text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
-table.cell(info_table, 1, 5, bgcolor=neutral_bg, text_color=text_color, text=pad + str.tostring(leverage, "#") + "x" + pad, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace, width=9)
-table.cell(info_table, 0, 6, bgcolor=margin_bg, text_color=text_color, text=pad + "Margin" + pad, text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
-table.cell(info_table, 1, 6, bgcolor=margin_bg, text_color=text_color, text=pad + margin_text + pad, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace, width=9)
-table.cell(info_table, 0, 7, bgcolor=neutral_bg, text_color=text_color, text=pad + "Position Size" + pad, text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
-table.cell(info_table, 1, 7, bgcolor=neutral_bg, text_color=text_color, text=pad + "$" + str.tostring(math.abs(position_size), "#.##") + " USD" + pad, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace, width=9)
-table.cell(info_table, 0, 8, bgcolor=tp_profit_bg, text_color=text_color, text=pad + "TP Profit" + pad, text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
-table.cell(info_table, 1, 8, bgcolor=tp_profit_bg, text_color=text_color, text=pad + tp_text + pad, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace, width=9)
-table.cell(info_table, 0, 9, bgcolor=sl_loss_bg, text_color=text_color, text=pad + "SL Loss" + pad, text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
-table.cell(info_table, 1, 9, bgcolor=sl_loss_bg, text_color=text_color, text=pad + sl_text + pad, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace, width=9)
+// Header background (darker than table bg to stand out)
+color header_bg = is_dark ? color.rgb(25, 28, 38) : color.rgb(225, 225, 235)
+
+// === HEADER SECTION (Rows 0-4) - no internal borders ===
+// Row 0: Top separator line
+info_table.cell(0, 0, bgcolor = header_bg, text = "", height = 1)
+info_table.cell(1, 0, bgcolor = header_bg, text = "", height = 1)
+
+// Row 1: Direction | R:R
+info_table.cell(0, 1, bgcolor = header_bg, text_color = text_color, text = pad + direction_text + pad, text_halign = text.align_left, text_size = size.normal, text_font_family = font.family_monospace)
+info_table.cell(1, 1, bgcolor = header_bg, text_color = text_color, text = pad + rr_text + pad, text_halign = text.align_right, text_size = size.normal, text_font_family = font.family_monospace, width = 9)
+
+// Row 2: Account | Leverage
+info_table.cell(0, 2, bgcolor = header_bg, text_color = text_color, text = pad + "Account: $" + str.tostring(account_balance, "#.##") + pad, text_halign = text.align_left, text_size = size.normal, text_font_family = font.family_monospace)
+info_table.cell(1, 2, bgcolor = header_bg, text_color = text_color, text = pad + "Leverage: " + str.tostring(leverage, "#") + "x" + pad, text_halign = text.align_right, text_size = size.normal, text_font_family = font.family_monospace, width = 9)
+
+// Row 3: Margin | Position Size
+info_table.cell(0, 3, bgcolor = header_bg, text_color = margin_text_color, text = pad + "Margin: " + margin_text + pad, text_halign = text.align_left, text_size = size.normal, text_font_family = font.family_monospace)
+info_table.cell(1, 3, bgcolor = header_bg, text_color = text_color, text = pad + "Position: $" + str.tostring(math.abs(position_size), "#.##") + pad, text_halign = text.align_right, text_size = size.normal, text_font_family = font.family_monospace, width = 9)
+
+// Row 4: Quantity
+info_table.cell(0, 4, bgcolor = header_bg, text_color = text_color, text = pad + "Quantity" + pad, text_halign = text.align_left, text_size = size.normal, text_font_family = font.family_monospace)
+info_table.cell(1, 4, bgcolor = header_bg, text_color = text_color, text = pad + str.tostring(math.abs(quantity), "#.####") + " units" + pad, text_halign = text.align_right, text_size = size.normal, text_font_family = font.family_monospace, width = 9)
+
+// Row 5: Bottom separator line
+info_table.cell(0, 5, bgcolor = header_bg, text = "", height = 1)
+info_table.cell(1, 5, bgcolor = header_bg, text = "", height = 1)
+
+// Row 6: Separator before trade section
+info_table.cell(0, 6, bgcolor = neutral_bg, text = "", height = 1)
+info_table.cell(1, 6, bgcolor = neutral_bg, text = "", height = 1)
+
+// === TRADE SECTION (Rows 7-9) ===
+// Row 7: Entry
+info_table.cell(0, 7, bgcolor = neutral_bg, text_color = text_color, text = pad + "Entry" + pad, text_halign = text.align_left, text_size = size.normal, text_font_family = font.family_monospace)
+info_table.cell(1, 7, bgcolor = neutral_bg, text_color = text_color, text = pad + "$" + str.tostring(entry, f_Format()) + pad, text_halign = text.align_right, text_size = size.normal, text_font_family = font.family_monospace, width = 9)
+
+// Row 8: Take Profit
+info_table.cell(0, 8, bgcolor = neutral_bg, text_color = text_color, text = pad + "Take Profit" + pad, text_halign = text.align_left, text_size = size.normal, text_font_family = font.family_monospace)
+info_table.cell(1, 8, bgcolor = neutral_bg, text_color = text_color, text = pad + "$" + str.tostring(take_profit, f_Format()) + pad, text_halign = text.align_right, text_size = size.normal, text_font_family = font.family_monospace, width = 9)
+
+// Row 9: Stop Loss
+info_table.cell(0, 9, bgcolor = neutral_bg, text_color = text_color, text = pad + "Stop Loss" + pad, text_halign = text.align_left, text_size = size.normal, text_font_family = font.family_monospace)
+info_table.cell(1, 9, bgcolor = neutral_bg, text_color = text_color, text = pad + "$" + str.tostring(stop_loss, f_Format()) + pad, text_halign = text.align_right, text_size = size.normal, text_font_family = font.family_monospace, width = 9)
+
+// Row 10: Separator after trade section
+info_table.cell(0, 10, bgcolor = neutral_bg, text = "", height = 2)
+info_table.cell(1, 10, bgcolor = neutral_bg, text = "", height = 2)
+
+// === RESULTS SECTION (Rows 11-12) ===
+// Row 11: TP Profit (green text for value)
+info_table.cell(0, 11, bgcolor = neutral_bg, text_color = text_color, text = pad + "TP Profit" + pad, text_halign = text.align_left, text_size = size.normal, text_font_family = font.family_monospace)
+info_table.cell(1, 11, bgcolor = neutral_bg, text_color = tp_text_color, text = pad + tp_text + pad, text_halign = text.align_right, text_size = size.normal, text_font_family = font.family_monospace, width = 9)
+
+// Row 12: SL Loss (red text for value)
+info_table.cell(0, 12, bgcolor = neutral_bg, text_color = text_color, text = pad + "SL Loss" + pad, text_halign = text.align_left, text_size = size.normal, text_font_family = font.family_monospace)
+info_table.cell(1, 12, bgcolor = neutral_bg, text_color = sl_text_color, text = pad + sl_text + pad, text_halign = text.align_right, text_size = size.normal, text_font_family = font.family_monospace, width = 9)
+
+// Row 13: Separator after trade section
+info_table.cell(0, 13, bgcolor = neutral_bg, text = "", height = 1)
+info_table.cell(1, 13, bgcolor = neutral_bg, text = "", height = 1)
 
 // Displaying trade lines (entry, stop loss, take profit)
 display_trade_lines = input.bool(true, title="Display Trade Lines", group=group_display)
@@ -147,30 +199,30 @@ if barstate.isfirst
     sl_label := label.new(na, na, "", color=sl_line_color, textcolor=color.white, style=label.style_label_left, size=size.small)
     tp_label := label.new(na, na, "", color=tp_line_color, textcolor=color.white, style=label.style_label_left, size=size.small)
 
-// Update line and label positions on every bar
+// Update line and label positions on every bar (v6 method syntax)
 if display_trade_lines and entry > 0
-    line.set_xy1(entry_line, bar_index - 100, entry)
-    line.set_xy2(entry_line, bar_index + 100, entry)
-    label.set_xy(entry_label, bar_index + 10, entry)
-    label.set_text(entry_label, "Entry")
+    entry_line.set_xy1(bar_index - 100, entry)
+    entry_line.set_xy2(bar_index + 100, entry)
+    entry_label.set_xy(bar_index + 10, entry)
+    entry_label.set_text("Entry")
 else
-    line.set_xy1(entry_line, na, na)
-    label.set_xy(entry_label, na, na)
+    entry_line.set_xy1(na, na)
+    entry_label.set_xy(na, na)
 
 if display_trade_lines and stop_loss > 0
-    line.set_xy1(sl_line, bar_index - 100, stop_loss)
-    line.set_xy2(sl_line, bar_index + 100, stop_loss)
-    label.set_xy(sl_label, bar_index + 10, stop_loss)
-    label.set_text(sl_label, "Stop Loss")
+    sl_line.set_xy1(bar_index - 100, stop_loss)
+    sl_line.set_xy2(bar_index + 100, stop_loss)
+    sl_label.set_xy(bar_index + 10, stop_loss)
+    sl_label.set_text("Stop Loss")
 else
-    line.set_xy1(sl_line, na, na)
-    label.set_xy(sl_label, na, na)
+    sl_line.set_xy1(na, na)
+    sl_label.set_xy(na, na)
 
 if display_trade_lines and take_profit > 0
-    line.set_xy1(tp_line, bar_index - 100, take_profit)
-    line.set_xy2(tp_line, bar_index + 100, take_profit)
-    label.set_xy(tp_label, bar_index + 10, take_profit)
-    label.set_text(tp_label, "Take Profit")
+    tp_line.set_xy1(bar_index - 100, take_profit)
+    tp_line.set_xy2(bar_index + 100, take_profit)
+    tp_label.set_xy(bar_index + 10, take_profit)
+    tp_label.set_text("Take Profit")
 else
-    line.set_xy1(tp_line, na, na)
-    label.set_xy(tp_label, na, na)
+    tp_line.set_xy1(na, na)
+    tp_label.set_xy(na, na)
