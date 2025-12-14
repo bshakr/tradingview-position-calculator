@@ -1,0 +1,164 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Awke
+
+
+//@version=5
+indicator(title = "Position Calculator",  shorttitle="Pos Calc" , overlay=true, explicit_plot_zorder = true)
+
+// Input groups
+group_trade_info = "Trade Info"
+group_account_info = "Account Info"
+group_display = "Display Settings"
+
+
+// Trade info inputs (input.price enables dragging on chart)
+entry = input.price(0.0, title="Entry", confirm=false, group=group_trade_info)
+stop_loss = input.price(0.0, title="Stop Loss", confirm=false, group=group_trade_info)
+take_profit = input.price(0.0, title="Target Price", confirm=false, group=group_trade_info)
+
+// Account info inputs
+account_balance = input.float(1000.0, title="Account Balance", group=group_account_info)
+leverage = input.float(1.0, title="Leverage", minval=1.0, step=1.0, group=group_account_info)
+risk_per_trade = input.float(0.0, title="Risk % of the trade", group=group_account_info)
+
+
+// Detect trade direction (long: take_profit > entry, short: take_profit < entry)
+is_long = take_profit > entry
+is_short = take_profit < entry
+
+// Calculate stop loss and target distance (using abs for both long and short)
+stop_loss_distance = math.abs(entry - stop_loss)
+take_profit_distance = math.abs(take_profit - entry)
+
+// Convert to percentage (with division by zero protection)
+sl_per = entry != 0 ? stop_loss_distance / entry * 100 : 0
+tg_per = entry != 0 ? take_profit_distance / entry * 100 : 0
+
+// Calculate risk reward ratio and position size (with division by zero protection)
+risk_reward_ratio = sl_per != 0 ? tg_per / sl_per : 0
+position_size = sl_per != 0 ? account_balance * risk_per_trade / sl_per : 0
+
+// Calculate margin and margin percentage
+margin = position_size / leverage
+margin_percent = account_balance != 0 ? (margin / account_balance) * 100 : 0
+
+// Calculate profit and loss amounts
+tp_profit_amount = position_size * (tg_per / 100)
+sl_loss_amount = position_size * (sl_per / 100)
+
+// Calculate profit and loss as percentage of account
+tp_profit_account_percent = account_balance != 0 ? (tp_profit_amount / account_balance) * 100 : 0
+sl_loss_account_percent = account_balance != 0 ? (sl_loss_amount / account_balance) * 100 : 0
+
+
+
+
+
+// Displaying info in table
+
+f_Format() =>
+    _s = str.tostring(syminfo.mintick)
+    _s := str.replace_all(_s, "25", "00")
+    _s := str.replace_all(_s, "5", "0")
+    _s := str.replace_all(_s, "1", "0")
+    _s
+
+// Color palette
+color neutral_bg     = color.rgb(30, 34, 45)
+color text_color     = color.rgb(209, 212, 220)
+color long_bg        = color.rgb(22, 72, 60)
+color short_bg       = color.rgb(92, 29, 36)
+color tp_profit_bg   = color.rgb(22, 72, 60)
+color sl_loss_bg     = color.rgb(92, 29, 36)
+color margin_warning = color.rgb(156, 120, 30)
+color margin_danger  = color.rgb(153, 35, 35)
+
+// Margin cell background
+color margin_bg = margin_percent > 100 ? margin_danger : margin_percent > 60 ? margin_warning : neutral_bg
+
+// Direction info
+string direction_text = is_long ? "LONG" : is_short ? "SHORT" : "-"
+color direction_bg = is_long ? long_bg : is_short ? short_bg : neutral_bg
+
+// Text values
+string rr_text = "R:R  " + str.tostring(risk_reward_ratio, "#.##")
+string tp_text = "+$" + str.tostring(tp_profit_amount, "#.##") + " (+" + str.tostring(tp_profit_account_percent, "#.##") + "%)"
+string sl_text = "-$" + str.tostring(sl_loss_amount, "#.##") + " (-" + str.tostring(sl_loss_account_percent, "#.##") + "%)"
+string margin_text = "$" + str.tostring(margin, "#.##") + " (" + str.tostring(margin_percent, "#.##") + "%)"
+
+// Create and populate table
+var table info_table = table.new(position.bottom_right, 2, 10, border_width=1, border_color=color.rgb(54, 58, 69), frame_width=2, frame_color=color.rgb(54, 58, 69))
+
+table.cell(info_table, 0, 0, bgcolor=direction_bg, text_color=text_color, text=direction_text, text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 1, 0, bgcolor=direction_bg, text_color=text_color, text=rr_text, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 0, 1, bgcolor=neutral_bg, text_color=text_color, text="Entry", text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 1, 1, bgcolor=neutral_bg, text_color=text_color, text="$" + str.tostring(entry, f_Format()), text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 0, 2, bgcolor=neutral_bg, text_color=text_color, text="Take Profit", text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 1, 2, bgcolor=neutral_bg, text_color=text_color, text="$" + str.tostring(take_profit, f_Format()), text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 0, 3, bgcolor=neutral_bg, text_color=text_color, text="Stop Loss", text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 1, 3, bgcolor=neutral_bg, text_color=text_color, text="$" + str.tostring(stop_loss, f_Format()), text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 0, 4, bgcolor=neutral_bg, text_color=text_color, text="Account Size", text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 1, 4, bgcolor=neutral_bg, text_color=text_color, text="$" + str.tostring(account_balance, "#.##") + " USD", text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 0, 5, bgcolor=neutral_bg, text_color=text_color, text="Leverage", text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 1, 5, bgcolor=neutral_bg, text_color=text_color, text=str.tostring(leverage, "#") + "x", text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 0, 6, bgcolor=margin_bg, text_color=text_color, text="Margin", text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 1, 6, bgcolor=margin_bg, text_color=text_color, text=margin_text, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 0, 7, bgcolor=neutral_bg, text_color=text_color, text="Position Size", text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 1, 7, bgcolor=neutral_bg, text_color=text_color, text="$" + str.tostring(math.abs(position_size), "#.##") + " USD", text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 0, 8, bgcolor=tp_profit_bg, text_color=text_color, text="TP Profit", text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 1, 8, bgcolor=tp_profit_bg, text_color=text_color, text=tp_text, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 0, 9, bgcolor=sl_loss_bg, text_color=text_color, text="SL Loss", text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
+table.cell(info_table, 1, 9, bgcolor=sl_loss_bg, text_color=text_color, text=sl_text, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace)
+
+// Displaying trade lines (entry, stop loss, take profit)
+display_trade_lines = input.bool(true, title="Display Trade Lines", group=group_display)
+
+// Line colors (matching our styled lines)
+color entry_line_color = color.rgb(100, 140, 200)    // Soft blue
+color sl_line_color    = color.rgb(239, 83, 80)      // Clear red
+color tp_line_color    = color.rgb(38, 166, 91)      // Clear green
+
+// Create persistent lines and labels once
+var line entry_line = na
+var line sl_line = na  
+var line tp_line = na
+var label entry_label = na
+var label sl_label = na
+var label tp_label = na
+
+// Initialize lines and labels on first bar
+if barstate.isfirst
+    entry_line := line.new(na, na, na, na, color=entry_line_color, style=line.style_solid, width=2, extend=extend.both)
+    sl_line := line.new(na, na, na, na, color=sl_line_color, style=line.style_solid, width=2, extend=extend.both)
+    tp_line := line.new(na, na, na, na, color=tp_line_color, style=line.style_solid, width=2, extend=extend.both)
+    entry_label := label.new(na, na, "", color=entry_line_color, textcolor=color.white, style=label.style_label_left, size=size.small)
+    sl_label := label.new(na, na, "", color=sl_line_color, textcolor=color.white, style=label.style_label_left, size=size.small)
+    tp_label := label.new(na, na, "", color=tp_line_color, textcolor=color.white, style=label.style_label_left, size=size.small)
+
+// Update line and label positions on every bar
+if display_trade_lines and entry > 0
+    line.set_xy1(entry_line, bar_index - 100, entry)
+    line.set_xy2(entry_line, bar_index + 100, entry)
+    label.set_xy(entry_label, bar_index + 10, entry)
+    label.set_text(entry_label, "Entry")
+else
+    line.set_xy1(entry_line, na, na)
+    label.set_xy(entry_label, na, na)
+
+if display_trade_lines and stop_loss > 0
+    line.set_xy1(sl_line, bar_index - 100, stop_loss)
+    line.set_xy2(sl_line, bar_index + 100, stop_loss)
+    label.set_xy(sl_label, bar_index + 10, stop_loss)
+    label.set_text(sl_label, "Stop Loss")
+else
+    line.set_xy1(sl_line, na, na)
+    label.set_xy(sl_label, na, na)
+
+if display_trade_lines and take_profit > 0
+    line.set_xy1(tp_line, bar_index - 100, take_profit)
+    line.set_xy2(tp_line, bar_index + 100, take_profit)
+    label.set_xy(tp_label, bar_index + 10, take_profit)
+    label.set_text(tp_label, "Take Profit")
+else
+    line.set_xy1(tp_line, na, na)
+    label.set_xy(tp_label, na, na)
