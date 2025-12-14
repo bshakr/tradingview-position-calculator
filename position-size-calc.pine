@@ -67,15 +67,20 @@ f_Format() =>
 table_position_input = input.string("↘", title="Table Position", options=["↗", "↖", "↙", "↘"], group=group_display)
 table_position = table_position_input == "↗" ? position.top_right : table_position_input == "↖" ? position.top_left : table_position_input == "↙" ? position.bottom_left : position.bottom_right
 
-// Color palette
-color neutral_bg     = color.rgb(30, 34, 45)
-color text_color     = color.rgb(209, 212, 220)
-color long_bg        = color.rgb(22, 72, 60)
-color short_bg       = color.rgb(92, 29, 36)
-color tp_profit_bg   = color.rgb(22, 72, 60)
-color sl_loss_bg     = color.rgb(92, 29, 36)
-color margin_warning = color.rgb(156, 120, 30)
-color margin_danger  = color.rgb(153, 35, 35)
+// Theme setting
+theme = input.string("Dark", title="Theme", options=["Dark", "Light"], group=group_display)
+is_dark = theme == "Dark"
+
+// Color palette (theme-dependent)
+color neutral_bg     = is_dark ? color.rgb(30, 34, 45)    : color.rgb(240, 240, 245)
+color text_color     = is_dark ? color.rgb(209, 212, 220) : color.rgb(40, 40, 50)
+color border_color   = is_dark ? color.rgb(54, 58, 69)    : color.rgb(180, 180, 190)
+color long_bg        = is_dark ? color.rgb(22, 72, 60)    : color.rgb(200, 235, 220)
+color short_bg       = is_dark ? color.rgb(92, 29, 36)    : color.rgb(245, 210, 210)
+color tp_profit_bg   = is_dark ? color.rgb(22, 72, 60)    : color.rgb(200, 235, 220)
+color sl_loss_bg     = is_dark ? color.rgb(92, 29, 36)    : color.rgb(245, 210, 210)
+color margin_warning = is_dark ? color.rgb(156, 120, 30)  : color.rgb(255, 230, 150)
+color margin_danger  = is_dark ? color.rgb(153, 35, 35)   : color.rgb(255, 180, 180)
 
 // Margin cell background
 color margin_bg = margin_percent > 100 ? margin_danger : margin_percent > 60 ? margin_warning : neutral_bg
@@ -91,7 +96,7 @@ string sl_text = "-$" + str.tostring(sl_loss_amount, "#.##") + " (-" + str.tostr
 string margin_text = "$" + str.tostring(margin, "#.##") + " (" + str.tostring(margin_percent, "#.##") + "%)"
 
 // Create and populate table
-var table info_table = table.new(table_position, 2, 10, border_width=1, border_color=color.rgb(54, 58, 69), frame_width=2, frame_color=color.rgb(54, 58, 69))
+var table info_table = table.new(table_position, 2, 10, border_width=1, border_color=border_color, frame_width=2, frame_color=border_color)
 
 table.cell(info_table, 0, 0, bgcolor=direction_bg, text_color=text_color, text=direction_text, text_halign=text.align_left, text_size=size.normal, text_font_family=font.family_monospace)
 table.cell(info_table, 1, 0, bgcolor=direction_bg, text_color=text_color, text=rr_text, text_halign=text.align_right, text_size=size.normal, text_font_family=font.family_monospace)
